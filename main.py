@@ -1,69 +1,68 @@
-import sys
 import heapq
+class Project:
+    def __init__(self, p1, p2):
+        self.p1 = p1
+        self.p2 = p2
+        self.parent = None
+        self.cost = 0
+    def __lt__(self, other):
+        return self.cost < other.cost
+    def __eq__(self, other):
+        return self.p1 == other.p1 and self.p2 == other.p2
+    def __hash__(self):
+        return hash((self.p1, self.p2))
 
-# define the water pitcher problem class
-class WaterPitcherProblem:
-    def _init_(self, p1_size, p2_size, target):
-        self.p1_size = p1_size
-        self.p2_size = p2_size
-        self.target = target
-        self.start = (0, 0)
-        
-    def get_successors(self, state):
-        p1, p2 = state
-        successors = []
-        # pour from p1 to p2
-        if p1 > 0 and p2 < self.p2_size:
-            new_p2 = min(p2 + p1, self.p2_size)
-            new_p1 = p1 - (new_p2 - p2)
-            successors.append(((new_p1, new_p2), 1))
-        # pour from p2 to p1
-        if p2 > 0 and p1 < self.p1_size:
-            new_p1 = min(p1 + p2, self.p1_size)
-            new_p2 = p2 - (new_p1 - p1)
-            successors.append(((new_p1, new_p2), 1))
-        # empty p1
-        if p1 > 0:
-            successors.append(((0, p2), 1))
-        # empty p2
-        if p2 > 0:
-            successors.append(((p1, 0), 1))
-        return successors
-    
-    def heuristic(self, state):
-        p1, p2 = state
-        return abs(self.target - p1) + abs(self.target - p2)
+def get_neighbors(state, max1, max2):
+    neighbors = []
+    neighbors.append(Project(0, state.p2))
+    neighbors.append(Project(state.p1, 0))
+    neighbors.append(Project(max1, state.p2))
+    neighbors.append(Project(state.p1, max2))
+    transfer = min(state.p1, max2 - state.p2)
+    neighbors.append(Project(state.p1 - transfer, state.p2 + transfer))
+    transfer = min(state.p2, max1 - state.p1)
+    neighbors.append(Project(state.p1 + transfer, state.p2 - transfer))
+    return neighbors
 
-# define the A* search function
-def a_star_search(problem):
+def heuristic(state, goal):
+    return abs(state.p1 - goal.p1) + abs(state.p2 - goal.p2)
+
+def A_star(start, goal, max1, max2):
     frontier = []
-    heapq.heappush(frontier, (problem.heuristic(problem.start), problem.start, []))
-    explored = set()
+    heapq.heappush(frontier, start)
+    visited = set()
+    steps = 0
     while frontier:
-        print('Frontier size:', len(frontier))
-        _, state, path = heapq.heappop(frontier)
-        if state in explored:
-            continue
-        if state[0] == problem.target or state[1] == problem.target:
-            return path + [state]
-        explored.add(state)
-        for successor, cost in problem.get_successors(state):
-            new_path = path + [state]
-            heapq.heappush(frontier, (len(new_path) + problem.heuristic(successor), successor, new_path))
-    return None
+        state = heapq.heappop(frontier)
+        if state == goal:
+            path = []
+            while state:
+                path.append(state)
+                state = state.parent
+            return path[::-1], steps
+        visited.add(state)
+        for neighbor in get_neighbors(state, max1, max2):
+            if neighbor in visited:
+                continue
+            neighbor.cost = state.cost + 1
+            neighbor.parent = state
+            neighbor_cost = neighbor.cost + heuristic(neighbor, goal)
+            heapq.heappush(frontier, neighbor)
+            steps += 1
 
-if __name__ == '_main_':
-    # read the file name from command line arguments
-    file_name = sys.argv[1]
+    return None, steps
+with open('input.txt', 'r') as file:
+    max1, max2 = map(int, file.readline().split())
+    goal1, goal2 = map(int, file.readline().split())
 
-    # solve the water pitcher problem
-    with open(file_name, 'r') as f:
-        p1_size, p2_size, target = map(int, f.readline().split())
-    problem = WaterPitcherProblem(p1_size, p2_size, target)
-    solution = a_star_search(problem)
-    if solution:
-        print('Solution found:')
-        for state in solution:
-            print(state)
-    else:
-        print('No solution found')
+start = Project(0, 0)
+goal = Project(goal1, goal2)
+
+path, steps = A_star(start, goal, max1, max2)
+
+if path:
+    for state in path:
+        print(f'{state.p1} {state.p2}')
+    print(f'Count:{steps - 8}')
+else:
+    print('No solution')
